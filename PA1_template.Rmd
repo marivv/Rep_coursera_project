@@ -1,0 +1,105 @@
+---
+title: "Reproducible Research"
+output: 
+  html_document: 
+    keep_md: yes
+    toc: yes
+---
+
+## Getting Packages and Data
+
+```{r, echo=TRUE}
+library("data.table")
+library(ggplot2)
+library(dplyr)
+
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(fileUrl, destfile = paste0(getwd(), '/repdata%2Fdata%2Factivity.zip'))
+unzip("repdata%2Fdata%2Factivity.zip",exdir = "data")
+```
+
+##Reading Data
+
+```{r, echo=TRUE}
+activityDT <- data.table::fread(input = "data/activity.csv")
+activityDT<- tbl_df(activityDT)
+```
+
+## What is the mean total steps taken by day
+
+```{r, echo=TRUE}
+activityDay <- activityDT%>%group_by(date)
+Total_steps <- summarise(activityDay, Steps = sum(steps,na.rm = TRUE))
+head(Total_steps)
+  
+```
+```{r, echo=TRUE}
+hist(Total_steps$Steps, main = "Total Steps by day", xlab = "Sum of steps by day")
+
+```
+```{r, echo=TRUE}
+mean_steps <- mean(Total_steps$Steps)
+print(mean_steps)
+```
+```{r, echo=TRUE}
+median_steps <- median(Total_steps$Steps)
+print(median_steps)
+```
+
+##What is the average daily activity pattern?
+```{r, echo=TRUE}
+activityInterval <- activityDT%>%
+  group_by(interval)%>%
+  summarise(Steps = mean(steps, na.rm = TRUE))
+ggplot(activityInterval, aes(x= interval, y = Steps))+
+  theme_bw()+
+  labs(title = "Average daily steps")+
+  geom_line(color = "red", size = 1)
+  
+
+```
+
+```{r, echo=TRUE}
+activityInterval[which.max(activityInterval$Steps), ]
+```
+
+##Imputing missing values
+```{r, echo=TRUE}
+table(is.na(activityDT))
+```
+
+```{r,echo=TRUE}
+imput.activity <- activityDT%>%
+  mutate(steps.imputed = ifelse(is.na(activityDT$steps) == TRUE, mean(activityDT$steps, na.rm = TRUE), activityDT$steps))%>%
+  group_by(date)%>%
+  summarise(steps.imputed = sum(steps.imputed))
+hist(imput.activity$steps.imputed, xlab = "Total steps", main = "Histogram Total Steps")
+
+```
+```{r, echo=TRUE}
+data.frame(type.data =c("Original", "Imputed"),
+           median.activity = c(median(Total_steps$Steps, na.rm = TRUE),median(imput.activity$steps.imputed)),
+           mean.activity = c(mean(Total_steps$Steps, na.rm = TRUE)), mean(imput.activity$steps.imputed))
+
+```
+##Are there differences in activity patterns between weekdays and weekends?
+```{r, echo=TRUE}
+activityDT$date <- as.Date(activityDT$date, format = "%Y-%m-%d")
+wt <- weekdays(activityDT$date)
+activityDT$typeday <- as.factor(ifelse(wt %in% c("samedi", "dimanche"), "weekend", "weekday" ))
+head(activityDT)
+```
+
+```{r, echo=TRUE}
+activity_w <- activityDT%>%
+  group_by(interval,typeday)%>%
+  summarise(Steps = mean(steps, na.rm = TRUE))
+
+ggplot(activity_w, aes(x= interval, y = Steps, colour =typeday))+
+  theme_bw()+
+  facet_grid(typeday~.)+
+  geom_line(size =0.7)
+
+
+```
+
